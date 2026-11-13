@@ -122,14 +122,29 @@
       },
       "oil_remaining": {
         "name": "Pozostały olejek"
+      },
+      "current_cycle": {
+        "name": "Aktualny cykl"
+      },
+      "schedule_summary": {
+        "name": "Harmonogram"
+      },
+      "power_rule": {
+        "name": "Reguła zasilania",
+        "state": {
+          "none": "Zawsze włączone w oknie",
+          "occupancy": "Wyłączone bez obecności",
+          "hvac": "Zależne od wentylacji",
+          "occupancy_hvac": "Wyłączone bez obecności, zależne od wentylacji"
+        }
       }
     },
     "number": {
       "work_duration": {
-        "name": "Domyślny czas rozpylania"
+        "name": "Ręczne uruchomienie: rozpylanie"
       },
       "pause_duration": {
-        "name": "Domyślny czas pauzy"
+        "name": "Ręczne uruchomienie: pauza"
       },
       "bottle_capacity": {
         "name": "Pojemność butelki"

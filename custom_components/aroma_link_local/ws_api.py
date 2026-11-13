@@ -9,17 +9,21 @@ from homeassistant.components import websocket_api
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from . import cardapi
 from .const import DOMAIN
+from .gating import GateConfig
 from .model import NightOwlSettings, Weekday, WeeklySchedule
 from .schedule import scheduled_work_seconds_per_day, validate_schedule
+from .overview import overview_payload
 from .usage import days_remaining, level_percent, remaining_ml
 
 WWW = Path(__file__).parent / "www"
 CARD_FILE = "aroma-link-schedule-card.js"
+OVERVIEW_CARD_FILE = "aroma-link-schedule-overview.js"
 ERR_UNKNOWN, ERR_CONFLICT, ERR_INVALID = "unknown_device", "version_conflict", "invalid_schedule"
 ENTITIES = {  # card key -> (platform, unique_id suffix)
     "power": ("switch", "power"), "fan": ("switch", "fan"), "schedule_enabled": ("switch", "schedule_enabled"),
@@ -179,6 +183,22 @@ async def ws_list_devices(hass, connection, msg):
     connection.send_result(msg["id"], {"devices": devices})
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/get_overview"})
+@websocket_api.async_response
+async def ws_get_overview(hass, connection, msg):
+    """Read only: cycle, windows, dose and power rule of every diffuser, for the overview card."""
+    registry, devices = dr.async_get(hass), []
+    for hub in hass.data.get(DOMAIN, {}).values():
+        for dev in getattr(hub, "devices", {}).values():
+            entry = registry.async_get_device(identifiers={(DOMAIN, dev.mac.replace(":", "").lower())})
+            name = (entry.name_by_user or entry.name) if entry else f"Aroma-Link {dev.mac}"
+            status = dev.status.get("work_status", "off") if dev.status else ("idle" if dev.power else "off")
+            devices.append(overview_payload(
+                dev.topic_id, dev.mac, name, dev.power, status, dev.slots,
+                hub.models.get(dev.topic_id).schedule, GateConfig.from_options(hub._options, dev.topic_id)))
+    connection.send_result(msg["id"], {"devices": devices})
+
+
 def _card_digest() -> str:
     """Hash of every card module, so the static path changes with the code. Blocking: run in the executor."""
     return hashlib.sha1(b"".join(p.read_bytes() for p in sorted(WWW.rglob("*.js")))).hexdigest()[:8]
@@ -190,9 +210,10 @@ async def async_register(hass: HomeAssistant) -> None:
         return
     hass.data[f"{DOMAIN}_ws_registered"] = True
     for fn in (ws_get_schedule, ws_save_schedule, ws_set_night_owl_days, ws_set_flags, ws_sync_now,
-               ws_get_status, ws_timed_run_start, ws_timed_run_cancel, ws_list_devices):
+               ws_get_status, ws_timed_run_start, ws_timed_run_cancel, ws_list_devices, ws_get_overview):
         websocket_api.async_register_command(hass, fn)
     digest = await hass.async_add_executor_job(_card_digest)
     base = f"/aroma_link_local_card/{digest}"
     await hass.http.async_register_static_paths([StaticPathConfig(base, str(WWW), False)])
     add_extra_js_url(hass, f"{base}/{CARD_FILE}")
+    add_extra_js_url(hass, f"{base}/{OVERVIEW_CARD_FILE}")

@@ -1,4 +1,7 @@
-"""Default work / pause durations (used for timed runs and new schedule windows)."""
+"""Manual-run spray / pause durations (used by start_timed_run and new schedule windows).
+
+They are not the cycle the diffuser runs now: that is the active slot, see the Current cycle sensor.
+"""
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
