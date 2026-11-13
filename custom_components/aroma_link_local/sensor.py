@@ -19,7 +19,17 @@ from . import aroma_codec as codec
 from .naming import phase_remaining
 from .const import DOMAIN, SIGNAL_NEW_DEVICE
 from .entity import AromaEntity
+from .gating import GateConfig
 from .model import today
+from .overview import (
+    RULES,
+    active_cycle,
+    dose_per_hour,
+    format_cycle,
+    power_rule,
+    schedule_windows,
+    summary_text,
+)
 from .schedule import scheduled_work_seconds_per_day
 from .usage import (
     days_remaining,
@@ -63,6 +73,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             UsageSensor(hass, hub, dev, "pump_count", "mdi:pump"),
             OilSensor(hass, hub, dev, "oil_level", "mdi:bottle-tonic-outline", "%"),
             OilSensor(hass, hub, dev, "oil_remaining", "mdi:water", "ml"),
+            CurrentCycleSensor(hass, dev),
+            ScheduleSummarySensor(hass, hub, dev),
+            PowerRuleSensor(hass, hub, dev),
         ])
 
     entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _add))
@@ -263,3 +276,76 @@ class OilSensor(AromaEntity, SensorEntity):
     @callback
     def _on_event(self, ev) -> bool:
         return ev[0] == "model"
+
+
+class CurrentCycleSensor(AromaEntity, SensorEntity):
+    """Spray / pause seconds of the enabled slot the device holds: what it runs now."""
+
+    _attr_icon = "mdi:timer-cog-outline"
+
+    def __init__(self, hass, dev):
+        super().__init__(hass, dev, "current_cycle")
+
+    @property
+    def native_value(self):
+        cycle = active_cycle(self._dev.slots)
+        return format_cycle(*cycle) if cycle else None
+
+    @property
+    def extra_state_attributes(self):
+        cycle = active_cycle(self._dev.slots)
+        if not cycle:
+            return {}
+        return {"work_sec": cycle[0], "pause_sec": cycle[1], "dose_per_hour": dose_per_hour(*cycle)}
+
+    @callback
+    def _on_event(self, ev) -> bool:
+        return ev[0] == "schedule"
+
+
+class ScheduleSummarySensor(AromaEntity, SensorEntity):
+    """The weekly windows HA keeps for the device; the per-day detail is in the attributes."""
+
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, hass, hub, dev):
+        super().__init__(hass, dev, "schedule_summary")
+        self._hub = hub
+
+    @property
+    def native_value(self):
+        return summary_text(self._hub.models.get(self._dev.topic_id).schedule)
+
+    @property
+    def extra_state_attributes(self):
+        schedule = self._hub.models.get(self._dev.topic_id).schedule
+        return {"windows": schedule_windows(schedule), "version": schedule.version,
+                "updated_at": schedule.updated_at}
+
+    @callback
+    def _on_event(self, ev) -> bool:
+        return ev[0] == "model"
+
+
+class PowerRuleSensor(AromaEntity, SensorEntity):
+    """What switches the diffuser, from the gating options (occupancy, HVAC, block)."""
+
+    _attr_icon = "mdi:power-settings"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = RULES
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, hass, hub, dev):
+        super().__init__(hass, dev, "power_rule")
+        self._hub = hub
+
+    def _rule(self):
+        return power_rule(GateConfig.from_options(self._hub._options, self._dev.topic_id))
+
+    @property
+    def native_value(self):
+        return self._rule()[0]
+
+    @property
+    def extra_state_attributes(self):
+        return self._rule()[1]

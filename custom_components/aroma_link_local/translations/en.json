@@ -122,14 +122,29 @@
       },
       "oil_remaining": {
         "name": "Oil remaining"
+      },
+      "current_cycle": {
+        "name": "Current cycle"
+      },
+      "schedule_summary": {
+        "name": "Schedule summary"
+      },
+      "power_rule": {
+        "name": "Power rule",
+        "state": {
+          "none": "Always on in the window",
+          "occupancy": "Off without occupancy",
+          "hvac": "Follows HVAC",
+          "occupancy_hvac": "Off without occupancy, follows HVAC"
+        }
       }
     },
     "number": {
       "work_duration": {
-        "name": "Default spray time"
+        "name": "Manual run: spray time"
       },
       "pause_duration": {
-        "name": "Default pause time"
+        "name": "Manual run: pause time"
       },
       "bottle_capacity": {
         "name": "Bottle capacity"

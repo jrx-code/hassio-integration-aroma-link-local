@@ -53,7 +53,9 @@ day's slots at midnight).
 | **Timed run** | `start_timed_run` / `cancel_timed_run`, survives restarts, overlay in slot 5, hands power back at the end. |
 | **Gating** | Optional HVAC, occupancy and motion gates with delays, per device, in the integration options. Two modes: schedule flip (default, no power beeps) and power switching. Some units (Pro300_2, firmware V1.0.20250114) keep diffusing with every slot disabled; schedule flip then falls back to power after 90 s and logs a warning once. |
 | **Usage and oil** | `Total pump time`, `Power-on count`, `Pump cycle count` (estimated from power and work phase), `Oil level`, `Oil remaining`, `Refilled to full` button, services `oil_refill`, `oil_calibrate`. |
+| **What it runs now** | `Current cycle` (spray / pause of the enabled slot on the device), `Schedule summary` (windows HA keeps, per-day detail and spray seconds per hour in the attributes) and `Power rule` (occupancy and HVAC conditions from the gating options). The `Manual run` number fields are separate: they only feed `start_timed_run` and new windows. |
 | **Diagnostics** | `Spraying allowed`, service `send_frame`, `aroma_link_local_frame` events. |
+| **Overview card** | Read-only `type: custom:aroma-link-schedule-overview`: one 24 h bar per weekday for every diffuser, the cycle it runs now, spray seconds per hour and the power rule. Optional `title` and `devices` (device ids). Data from the websocket command `aroma_link_local/get_overview`. |
 | **Schedule card** | The cjam28 schedule card ships with the integration and loads by itself: `type: custom:aroma-link-schedule-card`. |
 | **Persistence** | Devices, schedule, flags, timed run, counters and oil state survive restarts. |
 | **Footprint** | Python standard library only. Depends on the core `mqtt` integration. |
@@ -148,7 +150,7 @@ Polish); entity ids are English and do not depend on the UI language, with the s
 cloud integration: `switch.aroma_link_<mac>_power`, `_fan`, `_schedule_enabled`, `_night_owl`,
 `sensor..._work_status`, `_work_remain`, `_pause_remain`, `_on_count`, `_pump_count`,
 `_cumulative_runtime`, `_oil_level`, `_oil_remaining`, `_firmware_version`, `_last_update`,
-`number..._work_duration`, `_pause_duration`, `binary_sensor..._scheduled_on`, `button..._refill`
+`number..._work_duration`, `_pause_duration` (named "Manual run: spray / pause time": they feed `start_timed_run` and new windows, not the running cycle), `binary_sensor..._scheduled_on`, `button..._refill`
 (`<mac>` with underscores, e.g. `aa_bb_cc_dd_ee_ff`). Since 0.5.0 an id still carrying that generated
 prefix is renamed to this scheme once at startup (before, the ids were slugs of the translated
 names); an id you renamed yourself is left alone. Helpers that point at a renamed entity
@@ -407,4 +409,3 @@ test harness. Hassfest and HACS validation run on every push (`.github/workflows
 
 MIT License. Not affiliated with Aroma-Link, DeWoo or Crearoma. Use at your own risk: redirecting
 the device takes it off the vendor cloud until you undo the DNS change.
-
